@@ -792,11 +792,21 @@ export async function startBot(app?: express.Application): Promise<void> {
 
   // Start bot (Polling vs Webhook)
   if (process.env.WEBHOOK_URL && app) {
+    let baseUrl = process.env.WEBHOOK_URL.trim();
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
     const secretPath = `/telegraf/${bot.secretPathComponent()}`;
-    app.use(bot.webhookCallback(secretPath));
+    
+    // Express has global body parsing (express.json()) applied, which consumes the request stream.
+    // We register a custom POST handler and feed the pre-parsed req.body directly to bot.handleUpdate.
+    app.post(secretPath, (req, res) => {
+      bot.handleUpdate(req.body, res);
+    });
+
     try {
-      await bot.telegram.setWebhook(`${process.env.WEBHOOK_URL}${secretPath}`);
-      console.log(`Telegram Bot successfully set up on Webhook: ${process.env.WEBHOOK_URL}${secretPath}`);
+      await bot.telegram.setWebhook(`${baseUrl}${secretPath}`);
+      console.log(`Telegram Bot successfully set up on Webhook: ${baseUrl}${secretPath}`);
     } catch (err) {
       console.error('Failed to set Telegram Webhook:', err);
     }
