@@ -1,0 +1,33 @@
+{
+  "name": "worksheet-generator",
+  "version": "1.0.0",
+  "description": "Tuition centre worksheet generator telegram bot and bulk upload web UI",
+  "main": "dist/api/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/api/server.js",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/api/server.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.43.4",
+    "@swc/helpers": "^0.5.23",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.2.0",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.15.0",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^20.12.12",
+    "@types/pdfkit": "^0.13.4",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
