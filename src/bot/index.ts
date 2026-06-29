@@ -802,6 +802,12 @@ export async function startBot(app?: express.Application): Promise<void> {
     }
   } else {
     // Start polling locally
+    try {
+      await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+      console.log('Cleared Telegram Webhook to enable local long-polling.');
+    } catch (err) {
+      console.warn('Failed to clear Telegram Webhook:', err);
+    }
     bot.launch();
     console.log('Telegram Bot successfully connected and listening (long-polling).');
   }
