@@ -240,6 +240,48 @@ app.delete('/api/chapters/:id', async (req: any, res: any) => {
   }
 });
 
+/**
+ * PUT /api/chapters/:id
+ * Updates metadata tags for an existing chapter (chapter_name, subject, class, board).
+ */
+app.put('/api/chapters/:id', async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { chapter_name, subject, class: classLevel, board } = req.body;
+
+    if (!chapter_name || !subject || !classLevel || !board) {
+      return res.status(400).json({ error: 'All fields (chapter_name, subject, class, board) are required.' });
+    }
+
+    const normalizedSubject = normalizeSubject(subject);
+
+    const { data: updatedChapter, error } = await supabase
+      .from('chapters')
+      .update({
+        chapter_name: chapter_name.trim(),
+        subject: normalizedSubject,
+        class: classLevel.trim(),
+        board: board.trim()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating chapter:', error);
+      return res.status(500).json({ error: `Database update failed: ${error.message}` });
+    }
+
+    return res.status(200).json({
+      message: 'Chapter metadata updated successfully.',
+      chapter: updatedChapter
+    });
+  } catch (err: any) {
+    console.error('Server error during chapter update:', err);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 
 /**
  * POST /api/worksheets/generate

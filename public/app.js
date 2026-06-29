@@ -416,12 +416,41 @@ function renderChapterDetails(ch) {
 
   detailPanel.innerHTML = `
     <div class="chapter-details-header">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+      <div id="chapter-header-view-mode" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
         <div>
           <h2>${escapeHtml(ch.chapter_name)}</h2>
           <p>Subject: ${escapeHtml(ch.subject)} | Board: ${escapeHtml(ch.board)} | Class: ${escapeHtml(ch.class || 'N/A')}</p>
         </div>
-        <button class="btn btn-danger" id="delete-chapter-btn" style="flex-shrink: 0; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">🗑️ Delete</button>
+        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+          <button class="btn btn-secondary" id="edit-chapter-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">✏️ Edit Tags</button>
+          <button class="btn btn-danger" id="delete-chapter-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">🗑️ Delete</button>
+        </div>
+      </div>
+
+      <div id="chapter-header-edit-mode" style="display: none; flex-direction: column; gap: 10px;">
+        <h4 style="margin: 0; font-size: 0.95rem; color: var(--accent-blue);">Edit Metadata Tags</h4>
+        <div class="edit-fields-row" style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <div class="form-group-inline" style="flex: 2; min-width: 200px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted);">Chapter Name</label>
+            <input type="text" id="edit-chapter-name" value="${escapeHtml(ch.chapter_name)}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; padding: 6px 10px; color: white; font-size: 0.9rem;">
+          </div>
+          <div class="form-group-inline" style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted);">Subject</label>
+            <input type="text" id="edit-subject" value="${escapeHtml(ch.subject)}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; padding: 6px 10px; color: white; font-size: 0.9rem;">
+          </div>
+          <div class="form-group-inline" style="flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted);">Class</label>
+            <input type="text" id="edit-class" value="${escapeHtml(ch.class || '')}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; padding: 6px 10px; color: white; font-size: 0.9rem;">
+          </div>
+          <div class="form-group-inline" style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted);">Board</label>
+            <input type="text" id="edit-board" value="${escapeHtml(ch.board)}" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; padding: 6px 10px; color: white; font-size: 0.9rem;">
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 5px;">
+          <button class="btn btn-primary" id="save-chapter-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; background: var(--accent-violet); border: none; color: white;">💾 Save</button>
+          <button class="btn btn-secondary" id="cancel-edit-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">Cancel</button>
+        </div>
       </div>
     </div>
     
@@ -439,7 +468,13 @@ function renderChapterDetails(ch) {
   const notesBtn = document.getElementById('library-btn-notes');
   const chunksBtn = document.getElementById('library-btn-chunks');
   const contentEl = document.getElementById('library-detail-content');
+  
+  const editBtn = document.getElementById('edit-chapter-btn');
   const deleteBtn = document.getElementById('delete-chapter-btn');
+  const viewModeEl = document.getElementById('chapter-header-view-mode');
+  const editModeEl = document.getElementById('chapter-header-edit-mode');
+  const saveBtn = document.getElementById('save-chapter-btn');
+  const cancelEditBtn = document.getElementById('cancel-edit-btn');
 
   notesBtn.addEventListener('click', () => {
     notesBtn.classList.add('active');
@@ -451,6 +486,72 @@ function renderChapterDetails(ch) {
     chunksBtn.classList.add('active');
     notesBtn.classList.remove('active');
     contentEl.innerHTML = `<div class="chunks-scroller">${chunksHtml}</div>`;
+  });
+
+  editBtn.addEventListener('click', () => {
+    viewModeEl.style.display = 'none';
+    editModeEl.style.display = 'flex';
+  });
+
+  cancelEditBtn.addEventListener('click', () => {
+    editModeEl.style.display = 'none';
+    viewModeEl.style.display = 'flex';
+    document.getElementById('edit-chapter-name').value = ch.chapter_name;
+    document.getElementById('edit-subject').value = ch.subject;
+    document.getElementById('edit-class').value = ch.class || '';
+    document.getElementById('edit-board').value = ch.board;
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const updatedName = document.getElementById('edit-chapter-name').value.trim();
+    const updatedSubject = document.getElementById('edit-subject').value.trim();
+    const updatedClass = document.getElementById('edit-class').value.trim();
+    const updatedBoard = document.getElementById('edit-board').value.trim();
+
+    if (!updatedName || !updatedSubject || !updatedClass || !updatedBoard) {
+      alert('All fields (Chapter Name, Subject, Class, and Board) are required.');
+      return;
+    }
+
+    try {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      const res = await fetch(`${API_BASE}/chapters/${ch.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chapter_name: updatedName,
+          subject: updatedSubject,
+          class: updatedClass,
+          board: updatedBoard
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to update metadata.');
+      }
+
+      const resData = await res.json();
+      alert('Metadata updated successfully!');
+      
+      // Update selectedChapter state in client
+      selectedChapter = resData.chapter;
+      
+      // Reload lists and stats to update filters/tags
+      await loadLibraryChapters();
+      loadDashboardStats();
+      
+      // Re-render the details panel with new values
+      loadChapterDetails(ch.id);
+    } catch (err) {
+      alert(`Error updating chapter tags: ${err.message}`);
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Save';
+    }
   });
 
   deleteBtn.addEventListener('click', async () => {
