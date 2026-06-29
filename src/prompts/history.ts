@@ -90,6 +90,10 @@ ${chunksText}
 - Total Questions requested: ${count}
 - Target Difficulty: ${difficulty} (Easy = direct retrieval of facts; Medium = explanation of causes/effects from text; Hard = analytical/comparative questions using multiple sections of the text)
 - Pedagogical Mode: ${mode} (Note: regardless of mode, questions must remain 100% grounded in the source text)
+- **Strict Marking Scheme Guide**: You MUST assign the "marks" field to each question strictly based on the complexity and size of the answer required:
+  * **1 Mark**: Multiple Choice Questions (MCQ) or Very Short Answer (VSA) questions requiring only a single word, final numeric value, or basic direct recall.
+  * **2 Marks**: Short Answer (SA) questions requiring a brief explanation of two key points, or a simple 1-2 step calculation/equation solving.
+  * **4 Marks**: Long Answer (LA) questions requiring analytical thinking, detailed multi-step mathematical proofs/derivations, complex numerical calculations, or multi-part questions (e.g. sub-questions (a), (b), etc.).
 - **No Marks in Text**: Do NOT include any marks values (e.g., "(5 Marks)" or "[5m]") inside the "question_text" string. The layout engine will automatically display and format the marks at the end of the question row.
 
 ### Output Format Requirement:
@@ -98,7 +102,7 @@ Generate the questions and answers. Return only a raw JSON array of question obj
   {
     "question_number": 1,
     "question_text": "Detailed question text based strictly on facts present in the text. Do NOT include marks details in this string.",
-    "marks": 5,
+    "marks": 4,
     "solution": "Detailed model answer containing specific facts, names, and dates found in the text."
   }
 ]

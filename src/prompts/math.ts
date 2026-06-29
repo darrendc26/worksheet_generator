@@ -100,6 +100,10 @@ ${chunksText}
 - Pedagogical Mode: ${mode}
   Instruction for Mode: ${modeInstruction}
 - **Decimal Repeating/Bar Notation**: When generating questions containing repeating decimals, do NOT use combining macrons, overlines, or the word "bar" (e.g. do not write "0.6\u0304", "0.6bar", or "0.6̄"). You MUST represent repeating decimals by writing the repeating digits multiple times followed by an ellipsis (e.g. write "0.666...", write "0.4777...", and write "0.001001...").
+- **Strict Marking Scheme Guide**: You MUST assign the "marks" field to each question strictly based on the complexity and size of the answer required:
+  * **1 Mark**: Multiple Choice Questions (MCQ) or Very Short Answer (VSA) questions requiring only a single word, final numeric value, or basic direct recall.
+  * **2 Marks**: Short Answer (SA) questions requiring a brief explanation of two key points, or a simple 1-2 step calculation/equation solving.
+  * **4 Marks**: Long Answer (LA) questions requiring analytical thinking, detailed multi-step mathematical proofs/derivations, complex numerical calculations, or multi-part questions (e.g. sub-questions (a), (b), etc.).
 - **No Marks in Text**: Do NOT include any marks values (e.g., "(5 Marks)" or "[5m]") inside the "question_text" string. The layout engine will automatically display and format the marks at the end of the question row.
 
 ### Output Format Requirement:
@@ -108,7 +112,7 @@ Generate the questions and answers. Return only a raw JSON array of question obj
   {
     "question_number": 1,
     "question_text": "Detailed question text. Use plain text or standard clean symbols for equations (e.g., standard variables x, y, and super/subscripts like x^2). Do NOT include marks details in this string.",
-    "marks": 3,
+    "marks": 2,
     "solution": "Step-by-step detailed solution and final answer for the teacher."
   }
 ]

@@ -100,6 +100,10 @@ ${chunksText}
   Instruction for Mode: ${modeInstruction}
 - **Diagram Instruction**: Do NOT embed any SVG diagrams in the "question_text" field. Instead, generate questions that ask the student to draw, label, or complete diagrams themselves (e.g., "Draw a schematic diagram of a circuit...", "Draw and label a ray diagram showing...").
 - **Formal Question Styling**: Write direct, formal, exam-style questions. Do NOT start questions with hypothetical/imaginative phrasing like "Imagine a...", "Consider a...", "Suppose...", or "Assume there is a...". State the parameters and requirements directly.
+- **Strict Marking Scheme Guide**: You MUST assign the "marks" field to each question strictly based on the complexity and size of the answer required:
+  * **1 Mark**: Multiple Choice Questions (MCQ) or Very Short Answer (VSA) questions requiring only a single word, final numeric value, or basic direct recall.
+  * **2 Marks**: Short Answer (SA) questions requiring a brief explanation of two key points, or a simple 1-2 step calculation/equation solving.
+  * **4 Marks**: Long Answer (LA) questions requiring analytical thinking, detailed multi-step mathematical proofs/derivations, complex numerical calculations, or multi-part questions (e.g. sub-questions (a), (b), etc.).
 - **No Marks in Text**: Do NOT include any marks values (e.g., "(5 Marks)" or "[5m]") inside the "question_text" string. The layout engine will automatically display and format the marks at the end of the question row.
 
 ### Output Format Requirement:
