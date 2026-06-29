@@ -87,7 +87,25 @@ app.post('/api/chapters/upload', upload.single('pdf'), async (req: any, res: any
       analysisResult = await analyzeAndChunkChapter(rawText, subject);
     }
 
-    // 4. Save Chapter details
+    // Check if the chapter already exists to prevent duplicate entries
+    const { data: existingChapter } = await supabase
+      .from('chapters')
+      .select('id, chapter_name')
+      .eq('chapter_name', chapterName)
+      .eq('subject', subject)
+      .eq('class', classLevel)
+      .eq('board', board)
+      .maybeSingle();
+
+    if (existingChapter) {
+      console.log(`Chapter "${chapterName}" already exists. Skipping duplicate database write.`);
+      return res.status(200).json({
+        message: 'Chapter already exists in the database. Skipped duplication.',
+        chapter: existingChapter,
+        chunks_count: 0
+      });
+    }
+
     if (req.destroyed) {
       console.log('Client connection closed (aborted). Aborting database save.');
       return res.status(499).end();
