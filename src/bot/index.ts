@@ -47,8 +47,8 @@ function getSession(userId: number): BotSession {
       activeClass: '',
       activeBoard: '',
       activeSubject: '',
-      includeDiagrams: true,
-      keyFormat: 'embed'
+      includeDiagrams: false,
+      keyFormat: 'separate'
     });
   }
   return sessions.get(userId)!;
@@ -80,6 +80,17 @@ export async function startBot(app?: express.Application): Promise<void> {
   // Command: /start
   bot.command('start', async (ctx) => {
     try {
+      // Clear choices and reset session state on /start
+      const session = getSession(ctx.from!.id);
+      session.selectedChapterIds = [];
+      session.difficulty = 'Medium';
+      session.questionCount = 10;
+      session.generationMode = 'revision';
+      session.additionalNotes = '';
+      session.step = 'idle';
+      session.includeDiagrams = false;
+      session.keyFormat = 'separate';
+
       const welcomeMessage = 
         `📚 <b>Welcome to the Dicksy Tuition Centre Worksheet Generator!</b>\n\n` +
         `I am your AI learning assistant. I can fetch chapter summaries, formulas, important historical dates, and generate printable PDF worksheets tailored to your subjects.\n\n` +
@@ -485,8 +496,8 @@ export async function startBot(app?: express.Application): Promise<void> {
       session.generationMode = 'revision';
       session.additionalNotes = '';
       session.step = 'idle';
-      session.includeDiagrams = true;
-      session.keyFormat = 'embed';
+      session.includeDiagrams = false;
+      session.keyFormat = 'separate';
       
       await ctx.editMessageText(
         `📚 <b>Welcome to the Dicksy Tuition Centre Worksheet Generator!</b>\n\n` +
@@ -576,6 +587,12 @@ export async function startBot(app?: express.Application): Promise<void> {
             { url: urls[1], filename: getWorksheetFilename(chapterNames, 'Answer_Key') }
           );
         }
+        // Clear choices for next generation
+        session.selectedChapterIds = [];
+        session.additionalNotes = '';
+        session.step = 'idle';
+        session.includeDiagrams = false;
+        session.keyFormat = 'separate';
         return;
       }
 
@@ -711,6 +728,12 @@ export async function startBot(app?: express.Application): Promise<void> {
           { url: keyPdfUrl, filename: getWorksheetFilename(chapterNames, 'Answer_Key') }
         );
       }
+      // Clear choices for next generation
+      session.selectedChapterIds = [];
+      session.additionalNotes = '';
+      session.step = 'idle';
+      session.includeDiagrams = false;
+      session.keyFormat = 'separate';
     } catch (err: any) {
       console.error('Worksheet bot generation error:', err);
       await ctx.reply(`❌ Failed to generate worksheet: ${err.message || 'Service temporarily unavailable.'}`);
