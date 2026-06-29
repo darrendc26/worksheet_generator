@@ -66,15 +66,26 @@ app.post('/api/chapters/upload', upload.single('pdf'), async (req: any, res: any
     console.log(`Metadata: Subject=${subject}, Class=${classLevel}, Board=${board}, Chapter=${chapterName}`);
 
     // 2. Extract raw text from PDF buffer server-side
-    const pdfData = await pdfParse(file.buffer);
-    const rawText = pdfData.text;
-
-    if (!rawText || rawText.trim().length === 0) {
-      return res.status(422).json({ error: 'Failed to extract text from the PDF file. Ensure the PDF contains readable text.' });
+    let rawText = '';
+    try {
+      const pdfData = await pdfParse(file.buffer);
+      rawText = pdfData.text || '';
+    } catch (parseErr) {
+      console.warn('pdfParse failed, treating as potential scanned PDF:', parseErr);
     }
 
-    // 3. Ask Gemini to semantically chunk and summarize the chapter content
-    const analysisResult = await analyzeAndChunkChapter(rawText, subject);
+    let analysisResult;
+    if (!rawText || rawText.trim().length < 100) {
+      console.log('Very little or no text extracted from PDF. Treating as scanned/image-based PDF and passing directly to Gemini...');
+      const base64Data = file.buffer.toString('base64');
+      analysisResult = await analyzeAndChunkChapter(
+        { mimeType: 'application/pdf', data: base64Data },
+        subject
+      );
+    } else {
+      console.log('Text-layered PDF detected. Analyzing raw extracted text...');
+      analysisResult = await analyzeAndChunkChapter(rawText, subject);
+    }
 
     // 4. Save Chapter details
     const { data: chapterData, error: chapterError } = await supabase

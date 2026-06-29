@@ -49,7 +49,7 @@ function cleanJsonText(raw: string): string {
  * in a single, token-efficient Gemini API call.
  */
 export async function analyzeAndChunkChapter(
-  chapterText: string,
+  chapterTextOrPdf: string | { mimeType: string; data: string },
   subject: string
 ): Promise<ChunkAndSummaryResult> {
   const isMath = subject.toLowerCase().includes('math') || subject.toLowerCase().includes('algebra') || subject.toLowerCase().includes('geometry');
@@ -144,11 +144,20 @@ You must return a raw JSON object with NO markdown formatting, matching this sch
     },
   });
 
-  const response = await model.generateContent([
-    systemInstruction,
-    `Subject: ${subject}\n\nChapter Content to analyze:\n${chapterText}`
-  ]);
+  const contentParts: any[] = [systemInstruction];
+  if (typeof chapterTextOrPdf === 'string') {
+    contentParts.push(`Subject: ${subject}\n\nChapter Content to analyze:\n${chapterTextOrPdf}`);
+  } else {
+    contentParts.push({
+      inlineData: {
+        data: chapterTextOrPdf.data,
+        mimeType: chapterTextOrPdf.mimeType
+      }
+    });
+    contentParts.push(`Subject: ${subject}\n\nAnalyze the attached textbook chapter PDF file and segment it.`);
+  }
 
+  const response = await model.generateContent(contentParts);
   const jsonText = response.response.text();
   try {
     const cleanedText = cleanJsonText(jsonText);
