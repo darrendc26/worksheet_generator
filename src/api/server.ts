@@ -609,16 +609,31 @@ app.use((err: any, req: any, res: any, next: any) => {
 // Clean up existing mismatched subject records on startup
 async function cleanupMismatchedSubjects() {
   try {
-    const { error } = await supabase
+    // 1. Normalize Math
+    const { error: mathErr } = await supabase
       .from('chapters')
       .update({ subject: 'Mathematics' })
       .in('subject', ['math', 'maths', 'Maths', 'Math', 'mathematics']);
-      
-    if (error) {
-      console.warn('Startup database subject cleanup warning:', error.message);
-    } else {
-      console.log('Database math subjects normalized successfully.');
+
+    if (mathErr) {
+      console.warn('Math subject normalization startup warning:', mathErr.message);
     }
+
+    // 2. Normalize Social Science
+    const { error: socialErr } = await supabase
+      .from('chapters')
+      .update({ subject: 'Social Science' })
+      .in('subject', [
+        'history', 'geography', 'civics', 'social studies', 'social science', 'social', 
+        'History', 'Geography', 'Civics', 'Social Studies', 'Social Science', 'Social',
+        'social_science', 'Social_Science'
+      ]);
+
+    if (socialErr) {
+      console.warn('Social Science subject normalization startup warning:', socialErr.message);
+    }
+
+    console.log('Database subjects normalized successfully.');
   } catch (err: any) {
     console.warn('Startup database subject cleanup failed:', err.message);
   }

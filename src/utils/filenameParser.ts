@@ -57,7 +57,7 @@ export function parseFilename(filename: string): ParsedMetadata {
   }
 
   // 3. Detect Subject
-  const subjectRegex = /\b(math|maths|mathematics|sci|science|physics|phy|chemistry|chem|biology|bio|history|hist|geography|geo|civics|english|eng)\b/i;
+  const subjectRegex = /\b(social\s*studies|social\s*science|social\s*sci|social|math|maths|mathematics|sci|science|physics|phy|chemistry|chem|biology|bio|history|hist|geography|geo|civics|english|eng)\b/i;
   const subjectMatch = workingName.match(subjectRegex);
   if (subjectMatch) {
     parsedSubject = normalizeSubject(subjectMatch[1]);
@@ -87,7 +87,7 @@ export function parseFilename(filename: string): ParsedMetadata {
  * Normalizes subject names to a standard list.
  */
 export function normalizeSubject(subject: string): string {
-  const rawSubj = subject.trim().toLowerCase();
+  const rawSubj = subject.trim().toLowerCase().replace(/\s+/g, ' ');
   if (rawSubj === 'math' || rawSubj === 'maths' || rawSubj === 'mathematics') {
     return 'Mathematics';
   } else if (rawSubj === 'sci' || rawSubj === 'science') {
@@ -98,12 +98,13 @@ export function normalizeSubject(subject: string): string {
     return 'Chemistry';
   } else if (rawSubj === 'biology' || rawSubj === 'bio') {
     return 'Biology';
-  } else if (rawSubj === 'history' || rawSubj === 'hist') {
-    return 'History';
-  } else if (rawSubj === 'geography' || rawSubj === 'geo') {
-    return 'Geography';
-  } else if (rawSubj === 'civics') {
-    return 'Civics';
+  } else if (
+    rawSubj === 'history' || rawSubj === 'hist' ||
+    rawSubj === 'geography' || rawSubj === 'geo' ||
+    rawSubj === 'civics' ||
+    rawSubj === 'social' || rawSubj === 'social science' || rawSubj === 'social studies' || rawSubj === 'social sci'
+  ) {
+    return 'Social Science';
   } else if (rawSubj === 'english' || rawSubj === 'eng') {
     return 'English';
   }
