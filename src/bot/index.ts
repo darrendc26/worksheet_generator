@@ -569,11 +569,11 @@ export async function startBot(app?: express.Application): Promise<void> {
         await ctx.editMessageText('✅ <b>Worksheet retrieved from cache! Sending file(s)...</b>', { parse_mode: 'HTML' });
         const urls = cachedWorksheet.pdf_url.split('|');
         await ctx.replyWithDocument(
-          { url: urls[0], filename: `${subject.replace(/\s+/g, '_')}_Worksheet.pdf` }
+          { url: urls[0], filename: getWorksheetFilename(chapterNames, 'Worksheet') }
         );
         if (urls[1]) {
           await ctx.replyWithDocument(
-            { url: urls[1], filename: `${subject.replace(/\s+/g, '_')}_Answer_Key.pdf` }
+            { url: urls[1], filename: getWorksheetFilename(chapterNames, 'Answer_Key') }
           );
         }
         return;
@@ -704,11 +704,11 @@ export async function startBot(app?: express.Application): Promise<void> {
 
       await ctx.editMessageText('✅ <b>Worksheet generated! Sending file(s)...</b>', { parse_mode: 'HTML' });
       await ctx.replyWithDocument(
-        { url: pdfUrl, filename: `${subject.replace(/\s+/g, '_')}_Worksheet.pdf` }
+        { url: pdfUrl, filename: getWorksheetFilename(chapterNames, 'Worksheet') }
       );
       if (keyPdfUrl) {
         await ctx.replyWithDocument(
-          { url: keyPdfUrl, filename: `${subject.replace(/\s+/g, '_')}_Answer_Key.pdf` }
+          { url: keyPdfUrl, filename: getWorksheetFilename(chapterNames, 'Answer_Key') }
         );
       }
     } catch (err: any) {
@@ -809,6 +809,28 @@ export async function startBot(app?: express.Application): Promise<void> {
   // Enable graceful stop
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
+}
+
+function getWorksheetFilename(chapterNames: string[], suffix: string): string {
+  if (!chapterNames || chapterNames.length === 0) {
+    return `Worksheet_${suffix}.pdf`;
+  }
+  
+  let namePart = '';
+  if (chapterNames.length === 1) {
+    namePart = chapterNames[0];
+  } else if (chapterNames.length === 2) {
+    namePart = `${chapterNames[0]}_&_${chapterNames[1]}`;
+  } else {
+    namePart = `${chapterNames[0]}_&_${chapterNames.length - 1}_more`;
+  }
+  
+  const cleanName = namePart
+    .replace(/[^a-zA-Z0-9\s&_\-]/g, '')
+    .replace(/[\s&]+/g, '_')
+    .replace(/_+/g, '_');
+    
+  return `${cleanName}_${suffix}.pdf`;
 }
 
 /**
