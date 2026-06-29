@@ -160,6 +160,17 @@ function setupUploadZone() {
     printLog('system', `Filename parsing auto-detected Class: ${metadata.class}, Subject: ${metadata.subject}, Board: ${metadata.board}, Chapter: ${metadata.chapter_name}`);
   }
 
+  const submitBtn = document.getElementById('btn-upload-submit');
+  const cancelBtn = document.getElementById('btn-upload-cancel');
+  let uploadAbortController = null;
+
+  cancelBtn.addEventListener('click', () => {
+    if (uploadAbortController) {
+      printLog('error', 'Cancelling task. Awaiting termination...');
+      uploadAbortController.abort();
+    }
+  });
+
   // Upload Form Submit
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -181,6 +192,14 @@ function setupUploadZone() {
     formData.append('board', board);
     formData.append('chapter_name', chapterName);
 
+    // Instantiate AbortController
+    uploadAbortController = new AbortController();
+
+    // Disable submit and show cancel
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.5';
+    cancelBtn.style.display = 'inline-flex';
+
     // Reset progress
     progressBar.style.width = '0%';
     logsContainer.innerHTML = '';
@@ -194,6 +213,7 @@ function setupUploadZone() {
       const res = await fetch(`${API_BASE}/chapters/upload`, {
         method: 'POST',
         body: formData,
+        signal: uploadAbortController.signal
       });
 
       progressBar.style.width = '70%';
@@ -214,7 +234,17 @@ function setupUploadZone() {
       uploadForm.reset();
     } catch (err) {
       progressBar.style.width = '0%';
-      printLog('error', `ERROR: ${err.message}`);
+      if (err.name === 'AbortError') {
+        printLog('error', 'PROCESS TERMINATED: Upload and analysis cancelled by user.');
+      } else {
+        printLog('error', `ERROR: ${err.message}`);
+      }
+    } finally {
+      // Re-enable submit and hide cancel
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      cancelBtn.style.display = 'none';
+      uploadAbortController = null;
     }
   });
 

@@ -88,6 +88,11 @@ app.post('/api/chapters/upload', upload.single('pdf'), async (req: any, res: any
     }
 
     // 4. Save Chapter details
+    if (req.destroyed) {
+      console.log('Client connection closed (aborted). Aborting database save.');
+      return res.status(499).end();
+    }
+
     const { data: chapterData, error: chapterError } = await supabase
       .from('chapters')
       .insert({
@@ -106,6 +111,12 @@ app.post('/api/chapters/upload', upload.single('pdf'), async (req: any, res: any
     }
 
     // 5. Save semantic chunks in bulk
+    if (req.destroyed) {
+      console.log('Client connection closed (aborted). Rolling back and aborting chunk save.');
+      await supabase.from('chapters').delete().eq('id', chapterData.id);
+      return res.status(499).end();
+    }
+
     const chunksToInsert = analysisResult.chunks.map((chunk, index) => ({
       chapter_id: chapterData.id,
       chunk_title: chunk.chunk_title,
@@ -123,6 +134,12 @@ app.post('/api/chapters/upload', upload.single('pdf'), async (req: any, res: any
       // Clean up chapter if chunks failed
       await supabase.from('chapters').delete().eq('id', chapterData.id);
       return res.status(500).json({ error: `Database chunk insertion failed: ${chunksError.message}` });
+    }
+
+    if (req.destroyed) {
+      console.log('Client connection closed (aborted) at final stage. Rolling back save.');
+      await supabase.from('chapters').delete().eq('id', chapterData.id);
+      return res.status(499).end();
     }
 
     return res.status(201).json({
