@@ -219,7 +219,16 @@ function setupUploadZone() {
       progressBar.style.width = '70%';
       printLog('process', 'Server processing started. PDF parsing and Gemini AI chunking active...');
 
-      const result = await res.json();
+      const text = await res.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (jsonErr) {
+        if (!res.ok) {
+          throw new Error(`HTTP Error ${res.status}: The server took too long to respond (Timeout). Check the Chapter Library in a few minutes, as the process may still complete in the background.`);
+        }
+        throw new Error('Invalid JSON response from server.');
+      }
       if (!res.ok) throw new Error(result.error || 'Server processing failed.');
 
       progressBar.style.width = '100%';
