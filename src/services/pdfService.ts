@@ -22,8 +22,11 @@ const reverseSuperscriptMap: { [key: string]: string } = {
 };
 
 function normalizeExponents(text: string): string {
+  // Clean up any stray combining macrons/overlines (bar notation) into repeated ellipsis notation
+  const cleanedText = text.replace(/(\d)(?:\u0304|\u0305)+/g, '$1$1$1...');
+
   const uniSuperscriptRegex = /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⁄]+/g;
-  let normalized = text.replace(uniSuperscriptRegex, (match) => {
+  let normalized = cleanedText.replace(uniSuperscriptRegex, (match) => {
     const normalChars = match.split('').map(c => reverseSuperscriptMap[c] || c).join('');
     return `^{${normalChars}}`;
   });

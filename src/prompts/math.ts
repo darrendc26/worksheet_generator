@@ -99,7 +99,7 @@ ${chunksText}
 - Target Difficulty: ${difficulty} (Adjust equation complexity and mathematical steps accordingly)
 - Pedagogical Mode: ${mode}
   Instruction for Mode: ${modeInstruction}
-- **Decimal Repeating/Bar Notation**: When generating questions containing repeating decimals (e.g., "0.6 bar" or "0.47 bar with 7 repeating"), do NOT write the word "bar" (e.g. "0.6bar"). Instead, prefer writing the repeating digits multiple times followed by an ellipsis (e.g., "0.666..." or "0.4777..."), or use a combining macron Unicode character over the repeating digits (e.g., "0.6\u0304" or "0.47\u0304") which sits higher above the digit to prevent overlapping.
+- **Decimal Repeating/Bar Notation**: When generating questions containing repeating decimals, do NOT use combining macrons, overlines, or the word "bar" (e.g. do not write "0.6\u0304", "0.6bar", or "0.6̄"). You MUST represent repeating decimals by writing the repeating digits multiple times followed by an ellipsis (e.g. write "0.666...", write "0.4777...", and write "0.001001...").
 - **No Marks in Text**: Do NOT include any marks values (e.g., "(5 Marks)" or "[5m]") inside the "question_text" string. The layout engine will automatically display and format the marks at the end of the question row.
 
 ### Output Format Requirement:
