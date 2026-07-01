@@ -37,3 +37,9 @@ CREATE TABLE IF NOT EXISTS generated_worksheets (
 -- Migration commands for existing databases:
 -- ALTER TABLE generated_worksheets ALTER COLUMN chapter_id DROP NOT NULL;
 -- ALTER TABLE generated_worksheets ADD COLUMN IF NOT EXISTS chapter_ids UUID[];
+
+-- Enable Row Level Security (RLS) on all tables to prevent public/anonymous access
+-- (The API server uses the service_role key, which bypasses RLS, so no policies are needed for backend access).
+ALTER TABLE chapters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generated_worksheets ENABLE ROW LEVEL SECURITY;
