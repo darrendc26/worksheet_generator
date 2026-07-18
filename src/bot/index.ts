@@ -924,6 +924,24 @@ function formatSummaryHtml(chapter: any): string {
     html += `\n`;
   }
 
+  if (s.key_concepts && s.key_concepts.length > 0) {
+    html += `💡 <b>Key Concepts:</b>\n`;
+    s.key_concepts.slice(0, 10).forEach((k: string) => { html += `• ${k}\n`; });
+    html += `\n`;
+  }
+
+  if (s.code_or_commands && s.code_or_commands.length > 0) {
+    html += `💻 <b>Code & Commands:</b>\n`;
+    s.code_or_commands.slice(0, 10).forEach((c: string) => { html += `• <code>${c}</code>\n`; });
+    html += `\n`;
+  }
+
+  if (s.writing_formats_or_examples && s.writing_formats_or_examples.length > 0) {
+    html += `📝 <b>Formats & Examples:</b>\n`;
+    s.writing_formats_or_examples.slice(0, 10).forEach((w: string) => { html += `• ${w}\n`; });
+    html += `\n`;
+  }
+
   if (s.question_patterns && s.question_patterns.length > 0) {
     html += `❓ <b>Common Exam Questions:</b>\n`;
     s.question_patterns.slice(0, 5).forEach((p: string) => { html += `• ${p}\n`; });

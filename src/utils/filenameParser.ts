@@ -57,7 +57,7 @@ export function parseFilename(filename: string): ParsedMetadata {
   }
 
   // 3. Detect Subject
-  const subjectRegex = /\b(social\s*studies|social\s*science|social\s*sci|social|math|maths|mathematics|sci|science|physics|phy|chemistry|chem|biology|bio|history|hist|geography|geo|civics|english|eng)\b/i;
+  const subjectRegex = /\b(social\s*studies|social\s*science|social\s*sci|social|math|maths|mathematics|sci|science|physics|phy|chemistry|chem|biology|bio|history|hist|geography|geo|civics|english|eng|it|information\s*technology|computer\s*science|comp\s*sci|computer|communications|communication\s*skills|communication|comm)\b/i;
   const subjectMatch = workingName.match(subjectRegex);
   if (subjectMatch) {
     parsedSubject = normalizeSubject(subjectMatch[1]);
@@ -107,6 +107,17 @@ export function normalizeSubject(subject: string): string {
     return 'Social Science';
   } else if (rawSubj === 'english' || rawSubj === 'eng') {
     return 'English';
+  } else if (
+    rawSubj === 'it' || rawSubj === 'information technology' ||
+    rawSubj === 'computer science' || rawSubj === 'comp sci' ||
+    rawSubj === 'computer'
+  ) {
+    return 'Information Technology';
+  } else if (
+    rawSubj === 'communications' || rawSubj === 'communication' ||
+    rawSubj === 'communication skills' || rawSubj === 'comm'
+  ) {
+    return 'Communications';
   }
   // Fallback
   return subject.trim().replace(/\b\w/g, (c) => c.toUpperCase());

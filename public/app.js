@@ -392,6 +392,30 @@ function renderChapterDetails(ch) {
         </div>
       `;
     }
+    if (s.key_concepts) {
+      summaryHtml += `
+        <div class="summary-block">
+          <h4>💡 Key Concepts</h4>
+          <ul>${s.key_concepts.map(k => `<li>${escapeHtml(k)}</li>`).join('')}</ul>
+        </div>
+      `;
+    }
+    if (s.code_or_commands) {
+      summaryHtml += `
+        <div class="summary-block">
+          <h4>💻 Code & Commands</h4>
+          <ul>${s.code_or_commands.map(c => `<li><code>${escapeHtml(c)}</code></li>`).join('')}</ul>
+        </div>
+      `;
+    }
+    if (s.writing_formats_or_examples) {
+      summaryHtml += `
+        <div class="summary-block">
+          <h4>📝 Writing Formats & Examples</h4>
+          <ul>${s.writing_formats_or_examples.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+        </div>
+      `;
+    }
     if (s.question_patterns) {
       summaryHtml += `
         <div class="summary-block">
@@ -905,7 +929,7 @@ function parseFilenameLocal(filename) {
   }
 
   // 3. Detect Subject
-  const subjectRegex = /\b(math|maths|mathematics|sci|science|physics|phy|chemistry|chem|biology|bio|history|hist|geography|geo|civics|english|eng)\b/i;
+  const subjectRegex = /\b(math|maths|mathematics|sci|science|physics|phy|chemistry|chem|biology|bio|history|hist|geography|geo|civics|english|eng|it|information\s*technology|computer\s*science|comp\s*sci|computer|communications|communication\s*skills|communication|comm)\b/i;
   const subjectMatch = workingName.match(subjectRegex);
   if (subjectMatch) {
     const rawSubj = subjectMatch[1].toLowerCase();
@@ -927,6 +951,17 @@ function parseFilenameLocal(filename) {
       parsedSubject = 'Civics';
     } else if (rawSubj === 'english' || rawSubj === 'eng') {
       parsedSubject = 'English';
+    } else if (
+      rawSubj === 'it' || rawSubj === 'information technology' ||
+      rawSubj === 'computer science' || rawSubj === 'comp sci' ||
+      rawSubj === 'computer'
+    ) {
+      parsedSubject = 'Information Technology';
+    } else if (
+      rawSubj === 'communications' || rawSubj === 'communication' ||
+      rawSubj === 'communication skills' || rawSubj === 'comm'
+    ) {
+      parsedSubject = 'Communications';
     }
     workingName = workingName.replace(subjectMatch[0], '');
   }

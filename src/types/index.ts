@@ -15,6 +15,22 @@ export interface HistorySummary {
   question_patterns: string[];
 }
 
+export interface ITSummary {
+  topics: string[];
+  important_terms: string[];
+  key_concepts: string[];
+  code_or_commands: string[];
+  question_patterns: string[];
+}
+
+export interface CommunicationsSummary {
+  topics: string[];
+  important_terms: string[];
+  key_concepts: string[];
+  writing_formats_or_examples: string[];
+  question_patterns: string[];
+}
+
 export interface GeneralSummary {
   topics: string[];
   important_terms: string[];
@@ -29,7 +45,7 @@ export interface Chapter {
   class?: string | null;
   board: string;
   chapter_name: string;
-  summary?: MathSummary | HistorySummary | GeneralSummary | null;
+  summary?: MathSummary | HistorySummary | GeneralSummary | ITSummary | CommunicationsSummary | null;
   created_at: string;
 }
 
