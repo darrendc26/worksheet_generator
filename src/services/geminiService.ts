@@ -112,7 +112,6 @@ export async function analyzeAndChunkChapter(
 You are an expert curriculum architect. Your task is to analyze textbook content, extract a detailed structured summary, and segment the text into logical semantic chunks (sections of ~400-800 words each).
 This textbook PDF is processed solely for educational and teaching purposes, and this operation is legally authorized.
 Ensure that the entire provided text is covered in the chunks, without dropping any concepts, formulas, or exercises.
-To prevent the automated API recitation filters from mistakenly blocking this legal educational request, do NOT copy sentences or paragraphs from the textbook word-for-word. Instead, write a detailed paraphrase and rewrite of the chunk content in your own words. You MUST preserve all specific data, technical details, definitions, laws, names, dates, numbers, math/scientific formulas, equations, and questions, but rewrite the surrounding explanations entirely in your own words.
 
 You must return a raw JSON object with NO markdown formatting, matching this schema:
 {
@@ -120,7 +119,7 @@ You must return a raw JSON object with NO markdown formatting, matching this sch
   "chunks": [
     {
       "chunk_title": "Descriptive title for this section",
-      "chunk_content": "A detailed paraphrase and rewrite of this section in your own words, explaining all concepts, theories, and details clearly without copying paragraphs verbatim.",
+      "chunk_content": "The actual exact text representing this section from the source text",
       "chunk_type": "theory" | "example" | "exercise" | "facts"
     }
   ]
@@ -209,7 +208,8 @@ export async function generateQuestions(
   count: number,
   mode: string,
   additionalNotes?: string,
-  includeDiagrams: boolean = true
+  includeDiagrams: boolean = true,
+  questionType: 'mcq' | 'subjective' | 'mixed' = 'subjective'
 ): Promise<GeneratedQuestionResponse[]> {
   const subjLower = subject.toLowerCase();
   const isMath = subjLower.includes('math') || subjLower.includes('algebra') || subjLower.includes('geometry');
@@ -345,6 +345,14 @@ Do NOT generate or embed any SVG diagram or visual aid inside the "question_text
   if (additionalNotes) {
     prompt += `\n\n### ADDITIONAL CUSTOMIZATION INSTRUCTIONS:\nThe user has requested these specific constraints/directions for the questions. You MUST strictly adhere to them:
 - ${additionalNotes}\n`;
+  }
+
+  if (questionType === 'mcq') {
+    prompt += `\n\n### QUESTION FORMAT INSTRUCTION:\nFormat ALL questions strictly as Multiple Choice Questions (MCQs). Each question text MUST include 4 distinct options labeled (A), (B), (C), (D) formatted neatly (e.g. "(A) option1  (B) option2  (C) option3  (D) option4"). The solution MUST clearly state the correct option and detailed step-by-step explanation.\n`;
+  } else if (questionType === 'subjective') {
+    prompt += `\n\n### QUESTION FORMAT INSTRUCTION:\nFormat ALL questions strictly as Subjective / Descriptive questions (such as sentence transformation, identification, fill-in-the-blanks, short answer questions, or essay/letter/passage prompts). Do NOT provide multiple choice options (A, B, C, D).\n`;
+  } else if (questionType === 'mixed') {
+    prompt += `\n\n### QUESTION FORMAT INSTRUCTION:\nProvide a balanced mix of Multiple Choice Questions (MCQs with 4 options A, B, C, D) and Subjective / Descriptive questions.\n`;
   }
 
   const { genAI, modelName } = getGeminiClient();

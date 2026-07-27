@@ -31,6 +31,7 @@ interface BotSession {
   activeSubject: string;
   includeDiagrams: boolean;
   keyFormat: 'embed' | 'separate' | 'none';
+  questionType: 'mcq' | 'subjective' | 'mixed';
 }
 
 const sessions = new Map<number, BotSession>();
@@ -48,7 +49,8 @@ function getSession(userId: number): BotSession {
       activeBoard: '',
       activeSubject: '',
       includeDiagrams: false,
-      keyFormat: 'separate'
+      keyFormat: 'separate',
+      questionType: 'subjective'
     });
   }
   return sessions.get(userId)!;
@@ -486,6 +488,36 @@ export async function startBot(app?: express.Application): Promise<void> {
     }
   });
 
+  // Action: change_q_type
+  bot.action('change_q_type', async (ctx) => {
+    try {
+      await ctx.editMessageText('❓ <b>Select Question Format / Style:</b>', {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('✏️ Subjective / Descriptive (Default)', 'set_qtype:subjective')],
+          [Markup.button.callback('🔘 Multiple Choice Questions (MCQs Only)', 'set_qtype:mcq')],
+          [Markup.button.callback('🔀 Mixed (MCQs + Subjective)', 'set_qtype:mixed')],
+          [Markup.button.callback('🔙 Back to Settings', 'go_configure')]
+        ])
+      });
+      await ctx.answerCbQuery();
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // Action: set_qtype:<type>
+  bot.action(/^set_qtype:(subjective|mcq|mixed)$/, async (ctx) => {
+    try {
+      const session = getSession(ctx.from!.id);
+      session.questionType = ctx.match[1] as any;
+      await goConfigureHandler(ctx);
+      await ctx.answerCbQuery(`Question style updated.`);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
   // Action: restart_session
   bot.action('restart_session', async (ctx) => {
     try {
@@ -498,6 +530,7 @@ export async function startBot(app?: express.Application): Promise<void> {
       session.step = 'idle';
       session.includeDiagrams = false;
       session.keyFormat = 'separate';
+      session.questionType = 'subjective';
       
       await ctx.editMessageText(
         `📚 <b>Welcome to the Dicksy Tuition Centre Worksheet Generator!</b>\n\n` +
@@ -566,7 +599,7 @@ export async function startBot(app?: express.Application): Promise<void> {
       const sortedChapterIds = [...session.selectedChapterIds].sort();
       const notesClean = (session.additionalNotes || '').trim().toLowerCase();
       const hash = createHash('md5')
-        .update(`${sortedChapterIds.join(',')}_${session.difficulty.toLowerCase()}_${session.questionCount}_${PROMPT_VERSION}_${session.generationMode.toLowerCase()}_${session.keyFormat}_${session.includeDiagrams}_${notesClean}`)
+        .update(`${sortedChapterIds.join(',')}_${session.difficulty.toLowerCase()}_${session.questionCount}_${PROMPT_VERSION}_${session.generationMode.toLowerCase()}_${session.keyFormat}_${session.includeDiagrams}_${session.questionType}_${notesClean}`)
         .digest('hex');
 
       // 3. Check Cache
@@ -610,7 +643,8 @@ export async function startBot(app?: express.Application): Promise<void> {
           session.questionCount,
           session.generationMode,
           session.additionalNotes,
-          session.includeDiagrams
+          session.includeDiagrams,
+          session.questionType
         );
       } else {
         // Multi-subject
@@ -647,7 +681,8 @@ export async function startBot(app?: express.Application): Promise<void> {
             subCount,
             session.generationMode,
             session.additionalNotes,
-            session.includeDiagrams
+            session.includeDiagrams,
+            session.questionType
           );
 
           const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -1108,6 +1143,7 @@ async function goConfigureHandler(ctx: any) {
     `• Difficulty: <b>${session.difficulty}</b>\n` +
     `• Question Count: <b>${session.questionCount}</b>\n` +
     `• Mode: <b>${session.generationMode}</b>\n` +
+    `• Format: <b>${session.questionType === 'mcq' ? 'MCQs Only' : session.questionType === 'subjective' ? 'Subjective (No MCQs)' : 'Mixed (MCQ + Subjective)'}</b>\n` +
     `• Diagrams: <b>${session.includeDiagrams ? 'Yes' : 'No'}</b>\n` +
     `• Answer Key: <b>${session.keyFormat === 'embed' ? 'Embedded' : session.keyFormat === 'separate' ? 'Separate' : 'None'}</b>\n` +
     `• Custom Notes: <i>${session.additionalNotes || 'None'}</i>\n\n` +
@@ -1126,10 +1162,11 @@ async function goConfigureHandler(ctx: any) {
           Markup.button.callback('✍️ Edit Notes', 'change_notes'),
         ],
         [
+          Markup.button.callback('❓ Format: ' + (session.questionType === 'mcq' ? 'MCQ' : session.questionType === 'subjective' ? 'Subjective' : 'Mixed'), 'change_q_type'),
           Markup.button.callback(session.includeDiagrams ? '🖼️ Diagrams: Yes' : '🖼️ Diagrams: No', 'toggle_diagrams'),
-          Markup.button.callback('🔑 Answer Key', 'change_key_format'),
         ],
         [
+          Markup.button.callback('🔑 Answer Key', 'change_key_format'),
           Markup.button.callback('➕ Add More Chapters', 'list_classes'),
         ],
         [
@@ -1151,10 +1188,11 @@ async function goConfigureHandler(ctx: any) {
         Markup.button.callback('✍️ Edit Notes', 'change_notes'),
       ],
       [
+        Markup.button.callback('❓ Format: ' + (session.questionType === 'mcq' ? 'MCQ' : session.questionType === 'subjective' ? 'Subjective' : 'Mixed'), 'change_q_type'),
         Markup.button.callback(session.includeDiagrams ? '🖼️ Diagrams: Yes' : '🖼️ Diagrams: No', 'toggle_diagrams'),
-        Markup.button.callback('🔑 Answer Key', 'change_key_format'),
       ],
       [
+        Markup.button.callback('🔑 Answer Key', 'change_key_format'),
         Markup.button.callback('➕ Add More Chapters', 'list_classes'),
       ],
       [

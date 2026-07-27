@@ -7,6 +7,59 @@ function registerCustomFonts(doc: PDFKit.PDFDocument) {
   const fontBoldPath = path.join(process.cwd(), 'fonts', 'DejaVuSans-Bold.ttf');
   doc.registerFont('DejaVuSans', fontRegularPath);
   doc.registerFont('DejaVuSans-Bold', fontBoldPath);
+
+  const hindiRegularPath = path.join(process.cwd(), 'fonts', 'NotoSansDevanagari-Regular.ttf');
+  const hindiBoldPath = path.join(process.cwd(), 'fonts', 'NotoSansDevanagari-Bold.ttf');
+  doc.registerFont('NotoSansDevanagari', hindiRegularPath);
+  doc.registerFont('NotoSansDevanagari-Bold', hindiBoldPath);
+}
+
+function resolveFont(baseFont: string, text: string): string {
+  if (/[\u0900-\u097F]/.test(text)) {
+    if (baseFont.endsWith('-Bold')) {
+      return 'NotoSansDevanagari-Bold';
+    }
+    return 'NotoSansDevanagari';
+  }
+  return baseFont;
+}
+
+function drawMixedTextLine(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  align: 'left' | 'center' | 'right',
+  baseFont: string,
+  fontSize: number,
+  color: string
+) {
+  const parts = text.split(/(\s+)/g);
+  
+  const wordWidths = parts.map(part => {
+    const font = resolveFont(baseFont, part);
+    doc.font(font).fontSize(fontSize);
+    const w = doc.widthOfString(part);
+    return { text: part, font, width: w };
+  });
+  
+  const totalWidth = wordWidths.reduce((acc, curr) => acc + curr.width, 0);
+  
+  let startX = x;
+  if (align === 'center') {
+    startX = x + (width - totalWidth) / 2;
+  } else if (align === 'right') {
+    startX = x + width - totalWidth;
+  }
+  
+  let currentX = startX;
+  doc.fontSize(fontSize).fillColor(color);
+  for (const part of wordWidths) {
+    doc.font(part.font);
+    doc.text(part.text, currentX, y, { lineBreak: false });
+    currentX += part.width;
+  }
 }
 
 const reverseSuperscriptMap: { [key: string]: string } = {
@@ -84,7 +137,8 @@ function tokenizeRuns(
   let isFirst = true;
   for (const run of runs) {
     if (run.isSuperscript) {
-      doc.font(fontName).fontSize(superSize);
+      const resolvedFont = resolveFont(fontName, run.text);
+      doc.font(resolvedFont).fontSize(superSize);
       const width = doc.widthOfString(run.text);
       tokens.push({
         text: run.text,
@@ -107,7 +161,8 @@ function tokenizeRuns(
           isFirst = false;
         }
         
-        doc.font(currentFont).fontSize(fontSize);
+        const resolvedFont = resolveFont(currentFont, part);
+        doc.font(resolvedFont).fontSize(fontSize);
         const width = doc.widthOfString(part);
         tokens.push({
           text: part,
@@ -176,7 +231,8 @@ function drawMathText(
   const superSize = Math.round(fontSize * 0.65);
   const baselineShift = Math.round(fontSize * 0.35);
   
-  doc.font(fontName).fontSize(fontSize);
+  const initialFont = resolveFont(fontName, text);
+  doc.font(initialFont).fontSize(fontSize);
   const lineHeight = doc.currentLineHeight() + 2;
   
   const paragraphs = text.split('\n');
@@ -191,7 +247,8 @@ function drawMathText(
     for (const line of lines) {
       let currentX = x;
       for (const token of line) {
-        const font = token.isBold ? fontName + '-Bold' : fontName;
+        const baseFont = token.isBold ? fontName + '-Bold' : fontName;
+        const font = resolveFont(baseFont, token.text);
         const size = token.isSuperscript ? superSize : fontSize;
         const color = token.isBold ? '#1e293b' : textColor;
         
@@ -225,7 +282,8 @@ function measureMathText(
 ): number {
   const superSize = Math.round(fontSize * 0.65);
   
-  doc.font(fontName).fontSize(fontSize);
+  const initialFont = resolveFont(fontName, text);
+  doc.font(initialFont).fontSize(fontSize);
   const lineHeight = doc.currentLineHeight() + 2;
   
   const paragraphs = text.split('\n');
@@ -413,6 +471,7 @@ function drawSimpleSvg(doc: PDFKit.PDFDocument, startX: number, startY: number, 
 
     let fontName = 'DejaVuSans';
     if (isBold) fontName = 'DejaVuSans-Bold';
+    fontName = resolveFont(fontName, textContent);
 
     doc.font(fontName).fontSize(fontSize);
     doc.text(textContent, x, y);
@@ -491,8 +550,7 @@ export function generateWorksheetPdf(
           doc.fillColor('#f1f5f9'); // light grey background
           doc.rect(40, currentY, 515, 18).fill();
           
-          doc.font('DejaVuSans-Bold').fontSize(8.5).fillColor('#1e3a8a');
-          doc.text(q.sectionName.toUpperCase(), 48, currentY + 4);
+          drawMixedTextLine(doc, q.sectionName.toUpperCase(), 48, currentY + 4, 500, 'left', 'DejaVuSans-Bold', 8.5, '#1e3a8a');
           doc.restore();
           
           doc.y = currentY + 22; // advance Y below the banner
@@ -664,8 +722,7 @@ function drawHeader(
     chapterTitle = chapterNames.join(' & ');
   }
 
-  doc.font('DejaVuSans-Bold').fontSize(9.5).fillColor('#0f172a');
-  doc.text(chapterTitle, 40, 72, { width: 515, ellipsis: true });
+  drawMixedTextLine(doc, chapterTitle, 40, 72, 515, 'left', 'DejaVuSans-Bold', 9.5, '#0f172a');
 
   // Metadata Row
   const totalMarks = questions.reduce((acc, q) => acc + q.marks, 0);
@@ -696,8 +753,8 @@ function drawAnswerKey(
     ? `${chapterNames.slice(0, 3).join(', ')}...`
     : chapterNames.join(' & ');
 
-  doc.font('DejaVuSans').fontSize(8.5).fillColor('#64748b');
-  doc.text(`Chapters: ${keyTitle} (${subject} - ${classLevel} - ${board})`, 40, 55, { align: 'center', width: 515 });
+  const keyTitleText = `Chapters: ${keyTitle} (${subject} - ${classLevel} - ${board})`;
+  drawMixedTextLine(doc, keyTitleText, 40, 55, 515, 'center', 'DejaVuSans', 8.5, '#64748b');
   
   doc.font('DejaVuSans-Bold').fontSize(7.5).fillColor('#b91c1c');
   doc.text('[FOR TEACHER\'S USE ONLY — DO NOT DISTRIBUTE TO STUDENTS]', 40, 66, { align: 'center', width: 515 });
@@ -735,8 +792,7 @@ function drawAnswerKey(
       doc.fillColor('#f1f5f9');
       doc.rect(40, currentY, 515, 18).fill();
       
-      doc.font('DejaVuSans-Bold').fontSize(8.5).fillColor('#1e3a8a');
-      doc.text(q.sectionName.toUpperCase(), 48, currentY + 4);
+      drawMixedTextLine(doc, q.sectionName.toUpperCase(), 48, currentY + 4, 500, 'left', 'DejaVuSans-Bold', 8.5, '#1e3a8a');
       doc.restore();
       
       currentY += 25;
