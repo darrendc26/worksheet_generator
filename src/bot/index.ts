@@ -1,5 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import express from 'express';
+import https from 'https';
 import dotenv from 'dotenv';
 import { createHash } from 'crypto';
 import { supabase } from '../db';
@@ -13,7 +14,21 @@ dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
-let botInfo = { username: '', name: '', isOnline: false };
+let botInfo: {
+  username: string;
+  name: string;
+  isOnline: boolean;
+  mode?: string;
+  lastUpdateAt?: string | null;
+  lastError?: string | null;
+} = {
+  username: '',
+  name: '',
+  isOnline: false,
+  mode: 'initializing',
+  lastUpdateAt: null,
+  lastError: null
+};
 
 export function getBotStatus() {
   return botInfo;
@@ -66,16 +81,39 @@ export async function startBot(app?: express.Application): Promise<void> {
     return;
   }
 
-  const bot = new Telegraf(token);
+  // Force IPv4 and disable keep-alive socket pooling so Render's outbound NAT
+  // never blackholes stale idle sockets or IPv6 lookups to api.telegram.org
+  const telegramAgent = new https.Agent({
+    keepAlive: false,
+    family: 4,
+    timeout: 30000
+  });
+
+  const bot = new Telegraf(token, {
+    telegram: {
+      agent: telegramAgent,
+      attachmentAgent: telegramAgent,
+      webhookReply: false
+    }
+  });
+
+  bot.catch((err: any, ctx) => {
+    console.error('Telegraf error for update', ctx?.update?.update_id, err);
+    botInfo.lastError = err?.message || String(err);
+  });
 
   bot.telegram.getMe().then((me) => {
+    (bot as any).botInfo = me;
     botInfo = {
+      ...botInfo,
       username: me.username || '',
       name: me.first_name || '',
       isOnline: true
     };
     console.log(`Telegram Bot successfully connected: @${me.username}`);
   }).catch(err => {
+    (bot as any).botInfoCall = undefined;
+    botInfo.lastError = err?.message || String(err);
     console.error('Failed to get Telegram Bot info:', err);
   });
 
@@ -852,8 +890,8 @@ export async function startBot(app?: express.Application): Promise<void> {
   const webhookUrlEnv = process.env.WEBHOOK_URL || process.env.RENDER_EXTERNAL_URL;
   const processedUpdateIds = new Set<number>();
 
-  const handleUpdateSafely = (update: any) => {
-    if (!update) return;
+  const handleUpdateSafely = async (update: any) => {
+    if (!update || typeof update !== 'object') return;
     if (typeof update.update_id === 'number') {
       if (processedUpdateIds.has(update.update_id)) {
         return;
@@ -864,9 +902,20 @@ export async function startBot(app?: express.Application): Promise<void> {
         if (oldest !== undefined) processedUpdateIds.delete(oldest);
       }
     }
-    bot.handleUpdate(update).catch((err) => {
+    botInfo.lastUpdateAt = new Date().toISOString();
+    try {
+      // Ensure bot.botInfo is populated; if a prior getMe() call ever failed, clear Telegraf's cached promise
+      if (!(bot as any).botInfo) {
+        (bot as any).botInfoCall = undefined;
+        const me = await bot.telegram.getMe();
+        (bot as any).botInfo = me;
+      }
+      await bot.handleUpdate(update);
+    } catch (err: any) {
+      (bot as any).botInfoCall = undefined;
+      botInfo.lastError = err?.message || String(err);
       console.error('Error handling Telegram update:', err);
-    });
+    }
   };
 
   if (webhookUrlEnv && app) {
@@ -876,56 +925,47 @@ export async function startBot(app?: express.Application): Promise<void> {
     }
     const secretPath = `/telegraf/${bot.secretPathComponent()}`;
     const fullWebhookUrl = `${baseUrl}${secretPath}`;
+    botInfo.mode = 'webhook';
     
     // Register webhook route synchronously BEFORE any await so Express can accept
     // held cold-start requests the instant app.listen() binds to the port.
-    // Acknowledge with 200 OK immediately so Telegram never times out on slow DB/AI calls.
-    app.post(secretPath, (req, res) => {
-      res.sendStatus(200);
-      handleUpdateSafely(req.body);
+    // Wait up to 4s for fast commands (/start, menus) to complete before closing HTTP response,
+    // while returning 200 OK at 4s for long worksheet PDF generations so Telegram never times out.
+    app.post(secretPath, async (req, res) => {
+      const updatePromise = handleUpdateSafely(req.body);
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 4000));
+      await Promise.race([updatePromise, timeoutPromise]);
+      if (!res.headersSent) {
+        res.status(200).send('OK');
+      }
     });
 
     try {
       await bot.telegram.setWebhook(fullWebhookUrl);
       console.log(`Telegram Bot successfully set up on Webhook: ${fullWebhookUrl}`);
 
-      // If Render cold-booted from a Telegram message and Telegram's first webhook attempt
-      // timed out with 503 Service Unavailable during spin-up, Telegram backs off before retrying.
-      // Check after 2s and flush any stranded pending updates immediately.
-      setTimeout(async () => {
-        try {
-          const info = await bot.telegram.getWebhookInfo();
-          if (info.pending_update_count && info.pending_update_count > 0) {
-            console.log(`Found ${info.pending_update_count} pending Telegram update(s) after cold start. Flushing now...`);
-            await bot.telegram.deleteWebhook({ drop_pending_updates: false });
-            const updates = await bot.telegram.getUpdates(0, 100, 0, undefined);
-            if (updates.length > 0) {
-              const lastId = updates[updates.length - 1].update_id;
-              await bot.telegram.getUpdates(lastId + 1, 1, 0, undefined);
-            }
-            await bot.telegram.setWebhook(fullWebhookUrl);
-            for (const update of updates) {
-              handleUpdateSafely(update);
-            }
-          }
-        } catch (flushErr) {
-          console.warn('Pending update flush check failed:', flushErr);
-          await bot.telegram.setWebhook(fullWebhookUrl).catch(() => {});
-        }
-      }, 2000);
-
-      // Keep-alive self-ping every 13 minutes to prevent Render free tier from sleeping after 15 mins
+      // Keep-alive self-ping every 13 minutes to prevent Render free tier from sleeping after 15 mins,
+      // and verify Telegram webhook stays active.
       const keepAliveIntervalMs = 13 * 60 * 1000;
       setInterval(() => {
         fetch(`${baseUrl}/health`).catch((err) => {
           console.warn('Keep-alive ping warning:', err.message);
         });
+        bot.telegram.getWebhookInfo().then((info) => {
+          if (info.url !== fullWebhookUrl) {
+            return bot.telegram.setWebhook(fullWebhookUrl);
+          }
+        }).catch((err) => {
+          console.warn('Webhook verification warning:', err.message);
+        });
       }, keepAliveIntervalMs);
-    } catch (err) {
+    } catch (err: any) {
+      botInfo.lastError = err?.message || String(err);
       console.error('Failed to set Telegram Webhook:', err);
     }
   } else {
     // Start polling locally
+    botInfo.mode = 'polling';
     try {
       await bot.telegram.deleteWebhook({ drop_pending_updates: false });
       console.log('Cleared Telegram Webhook to enable local long-polling.');
