@@ -580,6 +580,14 @@ app.get('/api/stats', async (req: any, res: any) => {
 });
 
 /**
+ * GET /health
+ * Lightweight health check endpoint for Render and keep-alive pings.
+ */
+app.get('/health', (_req: any, res: any) => {
+  return res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
+/**
  * GET /api/bot/status
  * Returns connection and metadata for the Telegram Bot.
  */
@@ -590,6 +598,11 @@ app.get('/api/bot/status', (req: any, res: any) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
+});
+
+// Register Telegram Bot webhook route BEFORE error-handling middleware and app.listen
+const botInitPromise = startBot(app as any).catch((err) => {
+  console.error('CRITICAL: Telegram Bot failed to launch:', err);
 });
 
 // Express error-handling middleware to intercept Multer and general errors gracefully
@@ -639,14 +652,9 @@ async function cleanupMismatchedSubjects() {
   }
 }
 
-// Start Express Server
-cleanupMismatchedSubjects().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  });
-});
-
-// Boot Telegram Bot in background
-startBot(app as any).catch((err) => {
-  console.error('CRITICAL: Telegram Bot failed to launch:', err);
+// Start Express Server immediately so cold-start webhook requests from Telegram do not get 503
+app.listen(PORT, () => {
+  console.log(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  cleanupMismatchedSubjects();
+  void botInitPromise;
 });

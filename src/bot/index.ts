@@ -849,29 +849,85 @@ export async function startBot(app?: express.Application): Promise<void> {
   });
 
   // Start bot (Polling vs Webhook)
-  if (process.env.WEBHOOK_URL && app) {
-    let baseUrl = process.env.WEBHOOK_URL.trim();
+  const webhookUrlEnv = process.env.WEBHOOK_URL || process.env.RENDER_EXTERNAL_URL;
+  const processedUpdateIds = new Set<number>();
+
+  const handleUpdateSafely = (update: any) => {
+    if (!update) return;
+    if (typeof update.update_id === 'number') {
+      if (processedUpdateIds.has(update.update_id)) {
+        return;
+      }
+      processedUpdateIds.add(update.update_id);
+      if (processedUpdateIds.size > 1000) {
+        const oldest = processedUpdateIds.values().next().value;
+        if (oldest !== undefined) processedUpdateIds.delete(oldest);
+      }
+    }
+    bot.handleUpdate(update).catch((err) => {
+      console.error('Error handling Telegram update:', err);
+    });
+  };
+
+  if (webhookUrlEnv && app) {
+    let baseUrl = webhookUrlEnv.trim();
     if (baseUrl.endsWith('/')) {
       baseUrl = baseUrl.slice(0, -1);
     }
     const secretPath = `/telegraf/${bot.secretPathComponent()}`;
+    const fullWebhookUrl = `${baseUrl}${secretPath}`;
     
-    // Express has global body parsing (express.json()) applied, which consumes the request stream.
-    // We register a custom POST handler and feed the pre-parsed req.body directly to bot.handleUpdate.
+    // Register webhook route synchronously BEFORE any await so Express can accept
+    // held cold-start requests the instant app.listen() binds to the port.
+    // Acknowledge with 200 OK immediately so Telegram never times out on slow DB/AI calls.
     app.post(secretPath, (req, res) => {
-      bot.handleUpdate(req.body, res);
+      res.sendStatus(200);
+      handleUpdateSafely(req.body);
     });
 
     try {
-      await bot.telegram.setWebhook(`${baseUrl}${secretPath}`);
-      console.log(`Telegram Bot successfully set up on Webhook: ${baseUrl}${secretPath}`);
+      await bot.telegram.setWebhook(fullWebhookUrl);
+      console.log(`Telegram Bot successfully set up on Webhook: ${fullWebhookUrl}`);
+
+      // If Render cold-booted from a Telegram message and Telegram's first webhook attempt
+      // timed out with 503 Service Unavailable during spin-up, Telegram backs off before retrying.
+      // Check after 2s and flush any stranded pending updates immediately.
+      setTimeout(async () => {
+        try {
+          const info = await bot.telegram.getWebhookInfo();
+          if (info.pending_update_count && info.pending_update_count > 0) {
+            console.log(`Found ${info.pending_update_count} pending Telegram update(s) after cold start. Flushing now...`);
+            await bot.telegram.deleteWebhook({ drop_pending_updates: false });
+            const updates = await bot.telegram.getUpdates(0, 100, 0, undefined);
+            if (updates.length > 0) {
+              const lastId = updates[updates.length - 1].update_id;
+              await bot.telegram.getUpdates(lastId + 1, 1, 0, undefined);
+            }
+            await bot.telegram.setWebhook(fullWebhookUrl);
+            for (const update of updates) {
+              handleUpdateSafely(update);
+            }
+          }
+        } catch (flushErr) {
+          console.warn('Pending update flush check failed:', flushErr);
+          await bot.telegram.setWebhook(fullWebhookUrl).catch(() => {});
+        }
+      }, 2000);
+
+      // Keep-alive self-ping every 13 minutes to prevent Render free tier from sleeping after 15 mins
+      const keepAliveIntervalMs = 13 * 60 * 1000;
+      setInterval(() => {
+        fetch(`${baseUrl}/health`).catch((err) => {
+          console.warn('Keep-alive ping warning:', err.message);
+        });
+      }, keepAliveIntervalMs);
     } catch (err) {
       console.error('Failed to set Telegram Webhook:', err);
     }
   } else {
     // Start polling locally
     try {
-      await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false });
       console.log('Cleared Telegram Webhook to enable local long-polling.');
     } catch (err) {
       console.warn('Failed to clear Telegram Webhook:', err);
